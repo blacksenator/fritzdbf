@@ -1,6 +1,7 @@
 {
     "name": "blacksenator/fritzdbf",
     "type": "library",
+    "version": "1.0",
     "keywords": ["dbase", "fritzbox", "fax", "fax4box"],
     "homepage": "https://github.com/blacksenator/fritzdbf",
     "description": "A simple generator for dbase files using PHP",
@@ -12,7 +13,6 @@
             "role": "Developer"
         }
     ],
-    "minimum-stability": "dev",
     "require": {
 		"php": ">=7.1"
     },
