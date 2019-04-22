@@ -49,7 +49,7 @@ receiving the data:
 
     <?php
 
-    use blacksenator\fritzdbf;
+    use blacksenator\fritzdbf\fritzdbf;
 
     $newData = ['BEZCHNG' => 'Maria Mustermann',   // Feld 1
                 'FIRMA'   => 'Bundesdruckerei',
@@ -66,7 +66,7 @@ or directly via ftp (the reason why I coded this)
 
     <?php
 
-    use blacksenator\fritzdbf;
+    use blacksenator\fritzdbf\fritzdbf;
 
     $newData = ['BEZCHNG' => 'Max Mustermann',   // Feld 1
                 'FIRMA'   => 'Bundesdruckerei',
