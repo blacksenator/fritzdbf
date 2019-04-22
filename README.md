@@ -25,7 +25,11 @@ The DB analysis of a few FritzAdr.dbf files has surprisingly shown two variants 
 
 You can install it through Composer:
 
-    $ composer require blacksentor/fritzdbf
+    ```
+    "require": {
+        "blacksenator/fritzdbf": "dev-master#1.0"
+    },
+    ```
 
 or
 
