@@ -1,0 +1,22 @@
+{
+    "name": "blacksenator/fritzadr",
+    "type": "library",
+    "keywords": ["dbase", "fritzbox", "fax", "fax4box"],
+    "homepage": "https://github.com/blacksenator/fritzadr",
+    "description": "A simple generator for dbase files using PHP",
+    "license": "MIT",
+    "authors" : [
+        {
+            "name": "Volker Püschel",
+            "email": "knuffy@anasco.de"
+        }
+    ],
+    "require": {
+		"php": ">=7.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "blacksenator\\fritzdbf\\": "src/"
+        }
+    }
+}
