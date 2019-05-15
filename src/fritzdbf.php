@@ -37,7 +37,6 @@ namespace blacksenator\fritzdbf;
 
 class fritzdbf
 {
-
     const FRITZADRDEFINITION_19 = [
             ['BEZCHNG',   'C',  40],    // field  1
             ['FIRMA',     'C',  40],    // field  2
