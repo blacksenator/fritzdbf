@@ -1,5 +1,7 @@
 <?php
+
 namespace blacksenator\fritzdbf;
+
 /**
   * The class provides functions to manipulate the address database FRITZ!Adr from AVM.
   * FRITZ!Adr is an address and phonebook for the more or less legacy programs
@@ -31,7 +33,7 @@ namespace blacksenator\fritzdbf;
   *         file_put_contents('FritzAdr.dbf', $fritzdbf->getDatabase());
   *
   * @author Volker Püschel <knuffy@anasco.de>
-  * @copyright Volker Püschel 2019
+  * @copyright Volker Püschel 2019 - 2021
   * @license MIT
  **/
 
@@ -87,7 +89,8 @@ class fritzdbf
             $headerLength  = 0,
             $recordLength  = 0,
             $table  = '',
-            $numRecords    = 0;
+            $numRecords    = 0,
+            $fieldNames = [];
 
     /**
      * Initialize the class with basic settings
@@ -97,42 +100,40 @@ class fritzdbf
      */
     public function __construct(int $fields = 21)
     {
-        switch ($fields) {
-            case 19:
-                $this->dbDefinition = self::FRITZADRDEFINITION_19;
-                $this->recordLength = 1646;
-                break;
-
-            case 21:
-                $this->dbDefinition = self::FRITZADRDEFINITION_21;
-                $this->recordLength = 1750;
-                break;
-
-            default:
-                $errorMsg = sprintf('FRITZ!Adr expects a database definition with 19 or 21 entities. You have specified %c!', $fields);
-                throw new \Exception($errorMsg);
+        if ($fields === 19) {
+            $this->dbDefinition = self::FRITZADRDEFINITION_19;
+            $this->recordLength = 1646;
+        } elseif ($fields === 21) {
+            $this->dbDefinition = self::FRITZADRDEFINITION_21;
+            $this->recordLength = 1750;
+        } else {
+            $errorMsg = sprintf('FRITZ!Adr table definition must have 19 or 21 entities. You have specified %c!', $fields);
+            throw new \Exception($errorMsg);
         }
         $this->numAttributes = $fields;
+        $this->fieldNames = array_column($this->dbDefinition, 0);
     }
 
     /**
-     * get the 32 byte header describing the kind of file according to:
-     * https://guru-home.dyndns.org/dBase.html
+     * get the 32 byte header describing the kind of file
+     *
+     * @see ./docs/file structure.pdf
+     *
      * Example:
      * 03 67 06 0d 03 20 20 20 c1 02 d6 06 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 01 20 20 20
      *
      * @return string $header
      */
-    private function getHeader()
+    private function getHeader(): string
     {
         $lastUpdate = getdate(time());
         $this->headerLength = 33 + $this->numAttributes * 32;
 
-        $header =
+        return
             pack('C', 0x03) .                          //  1      dBase version
             pack('C', $lastUpdate['year'] % 1000) .    //  2      date of last update (3 Bytes)
-            pack('C', $lastUpdate['mon']) .            //  3       month
-            pack('C', $lastUpdate['mday']) .           //  4       day
+            pack('C', $lastUpdate['mon']) .            //  3      month
+            pack('C', $lastUpdate['mday']) .           //  4      day
             pack('V', $this->numRecords) .             //  5 -  8 number of records in the table
             pack('v', $this->headerLength) .           //  9 - 10 number of bytes in the header
             pack('v', $this->recordLength) .           // 11 - 12 number of bytes in the record (1646 or 1750)
@@ -144,53 +145,47 @@ class fritzdbf
             pack('C', 0x01) .                          // 29      mdx file exist
             str_pad('', 3, chr(0));                    /* 30      language code
                                                         * 31 - 32 reserved; filled with zeros */
-        return $header;
     }
 
     /**
-     * get the 32 byte descriptor describing each field (entity) according to:
-     * https://guru-home.dyndns.org/dBase.html
+     * get the 32 byte descriptor describing each field (entity)
+     *
+     * @see ./docs/file structure.pdf
+     *
      * Example (1 field):
      * 42 45 5a 43 48 4e 47 20 20 20 20 43 20 20 20 20 28 20 20 20 20 20 20 20 20 20 20 20 20 20 20 01
      *
      * @return string $entities
      */
-    private function getFieldDescriptor()
+    private function getFieldDescriptor(): string
     {
         $entities = null;
         foreach ($this->dbDefinition as $attribute) {
             $entity =
                 str_pad($attribute[0], 10, chr(0)) .   // field name filled up with zeros
                 pack('C', '0') .                       // separator
-                substr($attribute[1],0,1) .            // field type
+                substr($attribute[1], 0, 1) .          // field type
                 str_pad('', 4, chr(0)) .               // reserved; filled with zeros
                 pack('C', $attribute[2]) .             // filed length
                 pack('C', '0') .                       // field decimal count
                 str_pad('', 14, chr(0));               // reserved; filled with zeros
-            $entities = $entities . $entity;
+            $entities .= $entity;
         }
 
         return $entities;
     }
 
     /**
-     * get the byte separating the complete file header from the records
+     * get an assoziativ array according to the db-definition:
      *
-     * @return string byte
-     */
-    private function getHeaderEnd()
-    {
-        return pack('C', 0x0d);
-    }
-
-    /**
-     * get an assoziativ array according to the dbdefinition:
+     * @see ./docs/table structure.pdf
+     *
      * Each field name to one entry filled up with blanks to the given
      * field length
      *
      * @return array $record
      */
-    private function getEmptyRecord()
+    private function getEmptyRecord(): array
     {
         $record = [];
         foreach ($this->dbDefinition as $field) {
@@ -202,16 +197,20 @@ class fritzdbf
 
     /**
      * Set a value to a designated field
+     *
      * @param array $record  assoziative array of fields (e.g. ['NAME' => '', 'VORNAME' => ''])
      * @param string $field  e.g. 'NAME'
      * @param string $value  e.g. 'Doe'
      * @return array $record
      */
-    private function setFieldValue(array $record, $field, $value)
+    private function setFieldValue(array $record, $field, $value): array
     {
-        $fieldLength = strlen($record[$field]);                    // count length of field
-        $value = substr($value, 0, $fieldLength);                  // truncates the value to the field length
-        $record[$field] = str_pad($value, $fieldLength, ' ');      // fills up with spaces
+        if (in_array($field, $this->fieldNames)) {
+            $fieldLength = strlen($record[$field]);                    // count length of field
+            $value = substr($value, 0, $fieldLength);                  // truncates the value to the field length
+            $record[$field] = str_pad($value, $fieldLength, ' ');      // fills up with spaces
+        }
+
         return $record;
     }
 
@@ -219,6 +218,7 @@ class fritzdbf
      * add a new record to the database
      *
      * @param array $record assoziative array of fields (e.g. ['NAME' => 'Doe', 'VORNAME' => 'John'])
+     * @return void
      */
     public function addRecord(array $record)
     {
@@ -229,22 +229,9 @@ class fritzdbf
                 $newRecord = $this->setFieldValue($newRecord, $field, $value);
             }
         }
-        $dataset = pack('C', 0x20);                // start byte (0x2a if record is marked for deletion)
-        foreach ($newRecord as $field) {
-            $dataset = $dataset . $field;          // assamble the array into a dataset (ASCII)
-        }
-        $this->table = $this->table . $dataset;    // append the dataset to the global var table
-        $this->numRecords++;                       // increment the record counter; needed in setHeader()
-    }
-
-    /**
-     * get the eof byte
-     *
-     * @return string byte
-     */
-    private function getEndOfFile()
-    {
-        return pack('C', 0x1a);
+        $dataset = pack('C', 0x20) . implode($newRecord);   // start byte (0x2a if record is marked for deletion)
+        $this->table .= $dataset;               // append the dataset to the global var table
+        $this->numRecords++;                    // increment the record counter; needed in setHeader()
     }
 
     /**
@@ -256,9 +243,9 @@ class fritzdbf
     {
         $dataBase = $this->getHeader() .
                     $this->getFieldDescriptor() .
-                    $this->getHeaderEnd() .
+                    pack('C', 0x0d) .
                     $this->table .
-                    $this->getEndOfFile();
+                    pack('C', 0x1a);
 
         return $dataBase;
     }
