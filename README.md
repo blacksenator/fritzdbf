@@ -1,6 +1,9 @@
-# dBASE file generator for AVM FRITZ!Fax (fax4box)
+# dBASE file generator for AVM FRITZ!Adr
 
-The class provides functions to manipulate the address database FRITZ!Adr from AVM. FRITZ!Adr is an address and phonebook for the more or less legacy programs FRITZ!Fon, FRITZ!Data and FRITZ!Com. But still in use for [FRITZ!fax (fax4box)](https://ftp.avm.de/archive/fritz.box/tools/fax4box).
+The class provides functions to manipulate the address database FRITZ!Adr from AVM. FRITZ!Adr is an address and phonebook for the more or less legacy programs FRITZ!Fon, FRITZ!Data and FRITZ!Com. But still in use for [FRITZ!fax (fax4box)](https://avm.de/service/fritzbox/fritzbox-7590/wissensdatenbank/publication/show/190_FRITZ-fax-fur-FRITZ-Box-installieren-und-einrichten/).
+
+![alt text](assets/editing_record.jpg "record editing windows")
+Sample image of record editing window in FRITZ!Adr (Copyright© by AVM)
 
 The database is a dBASE III file, the default name is 'FritzAdr.dbf'.
 
@@ -15,7 +18,7 @@ The DB analysis of a few FritzAdr.dbf files has surprisingly shown two variants 
 ## Features
 
 * Does create a dBase file in memory instead of writing it directly to a file (like the outdated PECL version)
-* limited functionality: there is just one function: `addRecord()`! If you think more features are needed, fork this repo and feel free to contribute!
+* limited functionality: there is only one changing function: `addRecord()` beside of `getDatabase()` to receive the generated database! If you think more features are needed, fork this repo and feel free to contribute!
 
 ## Requirements
 
@@ -104,4 +107,4 @@ This script is released under MIT license.
 
 ## Authors
 
-Copyright(c) 2019 - 2021 Volker Püschel
+Copyright© 2019 - 2021 Volker Püschel

@@ -29,7 +29,7 @@ namespace blacksenator\fritzdbf;
   * appending a record:
   *         $fritzAdr->addRecord(['NAME' => 'John', 'VORNAME' => 'Doe']);
   *
-  * receiving the data
+  * receiving the data (table) or false
   *         file_put_contents('FritzAdr.dbf', $fritzdbf->getDatabase());
   *
   * @author Volker Püschel <knuffy@anasco.de>
@@ -39,7 +39,7 @@ namespace blacksenator\fritzdbf;
 
 class fritzdbf
 {
-    const FRITZADRDEFINITION_19 = [
+    const FRITZ_ADR_DEF_BASE = [
             ['BEZCHNG',   'C',  40],    // field  1
             ['FIRMA',     'C',  40],    // field  2
             ['NAME',      'C',  40],    // field  3
@@ -50,6 +50,8 @@ class fritzdbf
             ['ORT',       'C',  40],
             ['KOMMENT',   'C',  80],
             ['TELEFON',   'C',  64],    // field 10
+        ],
+        FRITZ_ADR_DEF_19 = [
             ['MOBILFON',  'C',  64],
             ['TELEFAX',   'C',  64],
             ['TRANSFER',  'C',  64],
@@ -60,17 +62,7 @@ class fritzdbf
             ['EMAIL',     'C', 254],
             ['HOMEPAGE',  'C', 254],    // field 19
         ],
-        FRITZADRDEFINITION_21 = [
-            ['BEZCHNG',   'C',  40],    // field  1
-            ['FIRMA',     'C',  40],    // field  2
-            ['NAME',      'C',  40],    // field  3
-            ['VORNAME',   'C',  40],    // field  4
-            ['ABTEILUNG', 'C',  40],    // field  5
-            ['STRASSE',   'C',  40],
-            ['PLZ',       'C',  10],
-            ['ORT',       'C',  40],
-            ['KOMMENT',   'C',  80],
-            ['TELEFON',   'C',  64],    // field 10
+        FRITZ_ADR_DEF_21 = [
             ['TELEFAX',   'C',  64],
             ['TRANSFER',  'C',  64],
             ['TERMINAL',  'C',  64],
@@ -84,13 +76,13 @@ class fritzdbf
             ['HOMEPAGE',  'C', 254]     // field 21
         ];
 
-    private $dbDefinition,
-            $numAttributes = 0,
-            $headerLength  = 0,
-            $recordLength  = 0,
-            $table  = '',
-            $numRecords    = 0,
-            $fieldNames = [];
+    private $dbDefinition;
+    private $numAttributes = 0;
+    private $headerLength  = 0;
+    private $recordLength  = 0;
+    private $table         = null;
+    private $numRecords    = 0;
+    private $fieldNames    = [];
 
     /**
      * Initialize the class with basic settings
@@ -101,10 +93,10 @@ class fritzdbf
     public function __construct(int $fields = 21)
     {
         if ($fields === 19) {
-            $this->dbDefinition = self::FRITZADRDEFINITION_19;
+            $this->dbDefinition = array_merge(self::FRITZ_ADR_DEF_BASE, self::FRITZ_ADR_DEF_19);
             $this->recordLength = 1646;
         } elseif ($fields === 21) {
-            $this->dbDefinition = self::FRITZADRDEFINITION_21;
+            $this->dbDefinition = array_merge(self::FRITZ_ADR_DEF_BASE, self::FRITZ_ADR_DEF_21);
             $this->recordLength = 1750;
         } else {
             $errorMsg = sprintf('FRITZ!Adr table definition must have 19 or 21 entities. You have specified %c!', $fields);
@@ -112,6 +104,44 @@ class fritzdbf
         }
         $this->numAttributes = $fields;
         $this->fieldNames = array_column($this->dbDefinition, 0);
+    }
+
+    /**
+     * add a new record to the database
+     *
+     * @param array $record assoziative array of fields (e.g. ['NAME' => 'Doe', 'VORNAME' => 'John'])
+     * @return void
+     */
+    public function addRecord(array $record)
+    {
+        $newRecord = $this->getEmptyRecord();               // get an new (empty) record
+        foreach ($record as $field => $value) {
+            if (isset($value)) {                            // transfer the given values into the new record
+                $newRecord = $this->setFieldValue($newRecord, $field, $value);
+            }
+        }
+        $dataset = pack('C', 0x20) . implode($newRecord);   // start byte (0x2a if record is marked for deletion)
+        $this->table .= $dataset;                           // append the dataset to the global var table
+        $this->numRecords++;                                // increment the record counter; needed in setHeader()
+    }
+
+    /**
+     * return the dBASE data well formated or false
+     * if table is empty (no records added)
+     *
+     * @return string|bool $dataBase
+     */
+    public function getDatabase()
+    {
+        if ($this->table == null) {
+            return false;
+        }
+
+        return $this->getHeader() .
+            $this->getFieldDescriptor() .
+            pack('C', 0x0d) .
+            $this->table .
+            pack('C', 0x1a);
     }
 
     /**
@@ -212,41 +242,5 @@ class fritzdbf
         }
 
         return $record;
-    }
-
-    /**
-     * add a new record to the database
-     *
-     * @param array $record assoziative array of fields (e.g. ['NAME' => 'Doe', 'VORNAME' => 'John'])
-     * @return void
-     */
-    public function addRecord(array $record)
-    {
-        $newRecord = $this->getEmptyRecord();          // get an new (empty) record
-        foreach ($record as $field => $value) {
-            if (isset($value)) {
-                // transfer the given values into the new record
-                $newRecord = $this->setFieldValue($newRecord, $field, $value);
-            }
-        }
-        $dataset = pack('C', 0x20) . implode($newRecord);   // start byte (0x2a if record is marked for deletion)
-        $this->table .= $dataset;               // append the dataset to the global var table
-        $this->numRecords++;                    // increment the record counter; needed in setHeader()
-    }
-
-    /**
-     * get the dBASE data well formated
-     *
-     * @return string $dataBase
-     */
-    public function getDatabase()
-    {
-        $dataBase = $this->getHeader() .
-                    $this->getFieldDescriptor() .
-                    pack('C', 0x0d) .
-                    $this->table .
-                    pack('C', 0x1a);
-
-        return $dataBase;
     }
 }
